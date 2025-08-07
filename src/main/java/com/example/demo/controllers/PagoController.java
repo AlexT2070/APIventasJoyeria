@@ -1,0 +1,185 @@
+package com.example.demo.controllers;
+
+import java.awt.Color;
+import java.io.ByteArrayOutputStream;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
+
+import com.lowagie.text.Document;
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.FontFactory;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.Phrase;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import com.example.demo.dto.PagoResponseDTO;
+import com.example.demo.models.Pago;
+import com.example.demo.repositories.PagoRepository;
+import com.example.demo.services.PagoService;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfWriter;
+
+@RestController
+@RequestMapping("/api/pagos")
+public class PagoController {
+	private final PagoService pagoService;
+	
+	@Autowired
+	private PagoRepository pagoRepository;
+	public PagoController(PagoService pagoService) {
+		this.pagoService = pagoService;
+	}
+	
+	@GetMapping("/pagoPorCliente{idCliente}")
+	public ResponseEntity<List<PagoResponseDTO>> getPagosPorCliente(@PathVariable Integer idCliente){
+		List<PagoResponseDTO> pagos = pagoService.getPagosporCliente(idCliente);
+		if(pagos.isEmpty()) {
+			return ResponseEntity.noContent().build();
+		}
+		return ResponseEntity.ok(pagos);
+	}
+	
+	@GetMapping("/readAllpagos")
+	public List<Pago> getAllPagos(){
+		return pagoRepository.findAll();
+	}
+
+	@PutMapping("/updatePago/{id}")
+	public ResponseEntity<Pago> upadatePago(@PathVariable Integer id, @RequestBody Pago pagoDetails){
+		Optional<Pago> pago = pagoRepository.findById(id);
+		if(pago.isPresent()) {
+			Pago updatePago = pago.get();
+			updatePago.setCliente(pagoDetails.getCliente());
+			updatePago.setFecha(pagoDetails.getFecha());
+			updatePago.setMetodoPago(pagoDetails.getMetodoPago());
+			updatePago.setMonto(pagoDetails.getMonto());
+			return ResponseEntity.ok(pagoRepository.save(updatePago));
+		}else {
+			return ResponseEntity.notFound().build();		}
+	}
+	
+	@PostMapping("/createPago")
+	public Pago createPago(@RequestBody Pago pago){
+		return pagoRepository.save(pago);
+	}
+	
+	@DeleteMapping("/deletePago")
+	public ResponseEntity<Void> deletePago(@PathVariable Integer id){
+	if(pagoRepository.existsById(id)) {
+		pagoRepository.deleteById(id);
+		return ResponseEntity.ok().build();
+	}else {
+		return ResponseEntity.notFound().build();
+		}
+	}
+	
+	@GetMapping("/pagosxls")
+	public ResponseEntity<byte[]> exportarPagosExcel(){
+		try(Workbook worbook = new XSSFWorkbook()){
+			Sheet hoja = worbook.createSheet("Pagos");
+			
+			
+			Row encabezado = hoja.createRow(0);
+			encabezado.createCell(0).setCellValue("ID");
+			encabezado.createCell(0).setCellValue("Cliente");
+			encabezado.createCell(2).setCellValue("Monto");
+			encabezado.createCell(3).setCellValue("MetodoPago");
+			
+			List<Pago> pagos = pagoRepository.findAll();
+			int rowNum = 1;
+			for(Pago pago: pagos) {
+				Row fila = hoja.createRow(rowNum++);
+				fila.createCell(0).setCellValue(pago.getIdPago());
+				fila.createCell(0).setCellValue(pago.getCliente().getNombreCliente()+ " " + pago.getCliente().getApellidos());
+				fila.createCell(1).setCellValue(pago.getMonto().toString());
+				fila.createCell(2).setCellValue(pago.getMetodoPago().toString());
+			}
+			
+			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+			worbook.write(outputStream);
+			
+			byte[] excelBytes = outputStream.toByteArray();
+			
+			return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=pagos.xlsx")
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(excelBytes);
+			
+		}catch(Exception e) {
+			return ResponseEntity.internalServerError()
+					.body(("Error al generar el Excel: "+ e.getMessage()).getBytes());
+		}
+	}
+	
+	@GetMapping("/pdfPagos")
+	public ResponseEntity<byte[]> exportarPagospdf(){
+		try {
+			List<Pago> pagos = pagoRepository.findAll();
+			
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			
+			Document document = new Document();
+			PdfWriter.getInstance(document, out);
+			document.open();
+			
+			Font titulofont = FontFactory.getFont(FontFactory.HELVETICA_BOLD,16);
+			Paragraph titulo = new Paragraph("Lista de pagos", titulofont);
+			titulo.setAlignment(Element.ALIGN_CENTER);
+			document.add(titulo);
+			document.add(new Paragraph(""));
+			
+			PdfPTable tabla = new PdfPTable(4);
+			tabla.setWidthPercentage(100);
+			tabla.setWidths(new float[] {2f, 4f, 2f, 2f});
+			
+			Stream.of("ID", "Cliente", "Monto", "MetodoPago").forEach(t ->{
+				PdfPCell celda = new PdfPCell(new Phrase(t));
+				celda.setBackgroundColor(Color.CYAN);
+				celda.setHorizontalAlignment(Element.ALIGN_CENTER);
+				tabla.addCell(celda);
+			});
+			
+			for (Pago p: pagos) {
+				tabla.addCell(String.valueOf(p.getIdPago()));
+				tabla.addCell(String.valueOf(p.getCliente()));
+				tabla.addCell("$" + p.getMonto());
+				tabla.addCell(String.valueOf(p.getMetodoPago()));
+			}
+			
+			document.add(tabla);
+			document.close();
+			
+			return ResponseEntity.ok()
+					.header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename= pagos.pdf")
+					.contentType(MediaType.APPLICATION_PDF)
+					.body(out.toByteArray());
+			
+		}catch(Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body(null);
+		}
+	}
+	
+	
+	
+}
