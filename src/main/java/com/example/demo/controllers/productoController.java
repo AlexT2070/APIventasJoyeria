@@ -26,7 +26,7 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 
 @RestController
-@RequestMapping
+@RequestMapping("/api/producto")
 public class productoController {
 
 	@Autowired
@@ -37,20 +37,21 @@ public class productoController {
 		return productoRepository.findAll();
 	}
 	
-	@GetMapping("/readProductos")
+	@GetMapping("/readProductos/{id}")
 	public ResponseEntity<Producto> getProductoById(@PathVariable Integer id){
 		Optional<Producto> producto = productoRepository.findById(id);
 		return producto.map(ResponseEntity::ok)
 				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
 	
-	@PutMapping("/createProductos")
+	@PostMapping("/createProductos")
 	public ResponseEntity<?> createProducto(@RequestBody Producto producto){
+		producto.setIdProducto(null);
 		Producto nuevoProducto = productoRepository.save(producto);
 		return ResponseEntity.ok(nuevoProducto);
 	}
 	
-	@PutMapping("/updateProducto")
+	@PutMapping("/updateProducto/{id}")
 	public ResponseEntity<Producto> updateUsuario(@PathVariable Integer id, @RequestBody Producto productoDetails){
 		Optional<Producto> producto = productoRepository.findById(id);
 		if(producto.isPresent()) {
@@ -67,10 +68,10 @@ public class productoController {
 		}
 	}
 	
-	@GetMapping("/deleteProducto")
-	public ResponseEntity<Void> deleteProducto(@PathVariable Integer id){
-		if(productoRepository.existsById(id)) {
-			productoRepository.deleteById(id);
+	@GetMapping("/deleteProducto/{idProducto}")
+	public ResponseEntity<Void> deleteProducto(@PathVariable Integer idProducto){
+		if(productoRepository.existsById(idProducto)) {
+			productoRepository.deleteById(idProducto);
 			return ResponseEntity.ok().build();
 		}else {
 			return ResponseEntity.notFound().build();
@@ -88,21 +89,22 @@ public class productoController {
 			PdfWriter.getInstance(document, out);
 			document.open();
 			
-			Font tituloFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
+			Font tituloFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Color.white);
 			Paragraph titutlo = new Paragraph("Lista de Productos", tituloFont);
 			document.add(titutlo);
 			document.add(new Paragraph(""));
 			
-			PdfPTable tabla =new PdfPTable(4);
+			PdfPTable tabla =new PdfPTable(7);
 			tabla.setWidthPercentage(100);
-			tabla.setWidths(new float[] {2f,4f,2f,2f});
+			tabla.setWidths(new float[] {1f,3f,4f,2f,2f,2f,2f});
 			
-			Stream.of("ID", "Nombre","Descripcion", "Precio", "Stock", "Iva ","Activo").forEach(t ->{
-				PdfPCell celda = new PdfPCell(new Phrase(t));
-				celda.setBackgroundColor(Color.CYAN);
+			String[] encabezados = {"ID", "Nombre","Descripcion", "Precio", "Stock", "Iva ","Activo"};
+			for(String encabezado : encabezados) {
+				PdfPCell celda = new PdfPCell(new Phrase(encabezado));
+				celda.setBackgroundColor(new Color(100,180,255));
 				celda.setHorizontalAlignment(Element.ALIGN_CENTER);
 				tabla.addCell(celda);
-			});
+			};
 			
 			for(Producto p: productos) {
 				tabla.addCell(String.valueOf(p.getIdProducto()));
@@ -110,10 +112,12 @@ public class productoController {
 				tabla.addCell(String.valueOf(p.getDescripcion()));
 				tabla.addCell("$" + p.getPrecio().toString());
 				tabla.addCell(String.valueOf(p.getStock()));
-				tabla.addCell(String.valueOf(p.getIva()));
-				tabla.addCell(String.valueOf(p.getActivo()));
+				tabla.addCell(String.valueOf(p.getIva()+"%"));
+				tabla.addCell(String.valueOf(p.getActivo()? "Si" : "No"));
 			}
-			
+			if(document.getPageNumber() >1) {
+				document.newPage();
+			}
 			document.add(tabla);
 			document.close();
 			
@@ -122,8 +126,9 @@ public class productoController {
 					.contentType(MediaType.APPLICATION_PDF)
 					.body(out.toByteArray());
 		}catch(Exception e) {
+			e.printStackTrace();
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-					.body(null);
+					.body(("Error al generar PDF: " + e.getMessage()).getBytes());
 		}
 	}
 	
