@@ -2,8 +2,13 @@ package com.example.demo.controllers;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.lowagie.text.Document;
@@ -31,13 +36,18 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+import com.example.demo.dto.PagoRequestDTO;
 import com.example.demo.dto.PagoResponseDTO;
 import com.example.demo.models.Pago;
+import com.example.demo.models.Venta;
 import com.example.demo.repositories.PagoRepository;
+import com.example.demo.repositories.VentaRepository;
 import com.example.demo.services.PagoService;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/pagos")
@@ -46,11 +56,12 @@ public class PagoController {
 	
 	@Autowired
 	private PagoRepository pagoRepository;
+	private VentaRepository ventaRepository;
 	public PagoController(PagoService pagoService) {
 		this.pagoService = pagoService;
 	}
 	
-	@GetMapping("/pagoPorCliente{idCliente}")
+	@GetMapping("/pagoPorCliente/{idCliente}")
 	public ResponseEntity<List<PagoResponseDTO>> getPagosPorCliente(@PathVariable Integer idCliente){
 		List<PagoResponseDTO> pagos = pagoService.getPagosporCliente(idCliente);
 		if(pagos.isEmpty()) {
@@ -79,9 +90,30 @@ public class PagoController {
 	}
 	
 	@PostMapping("/createPago")
-	public Pago createPago(@RequestBody Pago pago){
-		return pagoRepository.save(pago);
+	public ResponseEntity<?> crearPago(@Valid @RequestBody PagoRequestDTO pagoRequestDTO){
+		try {
+			Pago pago = pagoService.RegisterPago(pagoRequestDTO);
+				return ResponseEntity.status(HttpStatus.CREATED).body(pago);
+		}catch (RuntimeException e) {
+	        return ResponseEntity.badRequest().body(Map.of(
+	                "error", e.getMessage(),
+	                "timestamp", LocalDateTime.now()
+	            ));
+		}catch(Exception e) {
+			return ResponseEntity.internalServerError().body(Map.of(
+		            "error", "Error interno del servidor",
+		            "message", e.getMessage(),
+		            "timestamp", LocalDateTime.now()
+		        ));		
+			}
 	}
+	
+	@PostMapping("/testPago")
+	public ResponseEntity<PagoRequestDTO> testPago(@RequestBody PagoRequestDTO pagoRequestDTO){
+		return ResponseEntity.ok(pagoRequestDTO);
+	}
+	
+
 	
 	@DeleteMapping("/deletePago")
 	public ResponseEntity<Void> deletePago(@PathVariable Integer id){
@@ -178,6 +210,34 @@ public class PagoController {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(null);
 		}
+	}
+	
+	@GetMapping("venta/{idVenta}/estadoPagos")
+	public ResponseEntity<Map<String, Object>> getEstadoPagos(@PathVariable Integer idVenta, @RequestBody Pago pago){
+		Venta venta = ventaRepository.findById(idVenta)
+				.orElseThrow(() -> new RuntimeException("Venta no encontrada"));
+		
+		List<Pago> pagos = pagoRepository.findByVentaIdVenta(idVenta);
+		
+		BigDecimal saldoPendiente = venta.getTotalVenta().subtract(venta.getTotalPagado());
+		
+		Map<String, Object> response = new HashMap<>();
+		response.put("totalVenta", venta.getTotalVenta());
+		response.put("totalPagado", venta.getTotalPagado());
+		response.put("SaldoPendiente", saldoPendiente);
+		response.put("estado", venta.getEstado());
+		response.put("pagos", pagos.stream().map(this::convertToPagoDTO).collect(Collectors.toList()));
+		
+		return ResponseEntity.ok(response);
+	}
+	
+	private Map<String, Object> convertToPagoDTO(Pago pago){
+		Map<String, Object> dto = new HashMap<>();
+		dto.put("idPago", pago.getIdPago());
+		dto.put("monto", pago.getMonto());
+		dto.put("metodoPago", pago.getMetodoPago());
+		dto.put("fecha", pago.getFecha());
+		return dto;
 	}
 	
 	

@@ -1,14 +1,22 @@
 package com.example.demo.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class PagoResponseDTO {
 	Integer idPago;
 	Integer idventa;
 	String nombreCliente;
+	BigDecimal monto;
 	String metodoPago;
 	LocalDateTime fecha;
 	
+	public BigDecimal getMonto() {
+		return monto;
+	}
+	public void setMonto(BigDecimal monto) {
+		this.monto = monto;
+	}
 	
 	public Integer getIdPago() {
 		return idPago;

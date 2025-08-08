@@ -3,10 +3,17 @@ package com.example.demo.dto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import jakarta.validation.constraints.*;
+
 public class PagoRequestDTO {
+	@NotNull
 	private Integer idVenta;
+	@NotNull
 	private Integer idCliente;
+	@NotNull
+	@Positive
 	private BigDecimal monto;
+	@NotBlank
 	private String metodoPago;
 	private LocalDateTime fecha;
 	

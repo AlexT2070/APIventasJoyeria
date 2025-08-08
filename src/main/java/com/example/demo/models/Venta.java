@@ -19,18 +19,33 @@ public class Venta {
 	private Cliente cliente;
 
 	private LocalDateTime fecha;
-	@Column(name= "total_venta", nullable = false)
-	private BigDecimal totalVenta;
+	
+	@Column(name = "total_venta", precision = 10, scale = 2)
+    private BigDecimal totalVenta = BigDecimal.ZERO;
 	
 	@Column(name = "total_iva", nullable = false)
 	private BigDecimal totalIva;
 	
+	@Column(name= "total_pagado", precision = 10, scale = 2)
+	private BigDecimal totalPagado = BigDecimal.ZERO;
+	
+	public BigDecimal getTotalPagado() {
+		return totalPagado;
+	}
+	
+	public void setTotalPagado(BigDecimal totalPagado) {
+		this.totalPagado = totalPagado;
+	}
+	
+	public boolean isCompletamentePagado() {
+		return totalPagado.compareTo(totalVenta) >= 0;
+	}
 	
 	@Enumerated(EnumType.STRING)
 	private Estado estado;
 	
 	public enum Estado{
-		pagado, pendiente
+		pagado, pendiente, parcial,cancelado
 	}
 	
 	

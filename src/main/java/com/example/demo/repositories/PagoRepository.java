@@ -11,4 +11,5 @@ import com.example.demo.models.Pago;
 public interface PagoRepository extends JpaRepository<Pago, Integer>{
 	
 	List<Pago> findByClienteIdCliente(Integer IdCliente);
+	 List<Pago> findByVentaIdVenta(Integer idVenta);
 }
