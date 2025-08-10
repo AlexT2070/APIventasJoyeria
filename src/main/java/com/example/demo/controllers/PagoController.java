@@ -53,12 +53,13 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/pagos")
 public class PagoController {
 	private final PagoService pagoService;
+	private final PagoRepository pagoRepository;
+	private final VentaRepository ventaRepository;
 	
-	@Autowired
-	private PagoRepository pagoRepository;
-	private VentaRepository ventaRepository;
-	public PagoController(PagoService pagoService) {
+	public PagoController(PagoService pagoService, PagoRepository pagoRepository, VentaRepository ventaRepository) {
 		this.pagoService = pagoService;
+		this.pagoRepository = pagoRepository;
+		this.ventaRepository = ventaRepository;
 	}
 	
 	@GetMapping("/pagoPorCliente/{idCliente}")
@@ -71,23 +72,23 @@ public class PagoController {
 	}
 	
 	@GetMapping("/readAllpagos")
-	public List<Pago> getAllPagos(){
-		return pagoRepository.findAll();
+	public ResponseEntity<List<PagoResponseDTO>> getAllPagos(){
+		List<PagoResponseDTO> pagos = pagoService.getAllPagos();
+		return ResponseEntity.ok(pagos);
 	}
+	
 
-	@PutMapping("/updatePago/{id}")
-	public ResponseEntity<Pago> upadatePago(@PathVariable Integer id, @RequestBody Pago pagoDetails){
-		Optional<Pago> pago = pagoRepository.findById(id);
-		if(pago.isPresent()) {
-			Pago updatePago = pago.get();
-			updatePago.setCliente(pagoDetails.getCliente());
-			updatePago.setFecha(pagoDetails.getFecha());
-			updatePago.setMetodoPago(pagoDetails.getMetodoPago());
-			updatePago.setMonto(pagoDetails.getMonto());
-			return ResponseEntity.ok(pagoRepository.save(updatePago));
-		}else {
-			return ResponseEntity.notFound().build();		}
+	@PutMapping("/update/{idPago}")
+	public ResponseEntity<PagoResponseDTO> updatePago(@PathVariable Integer idPago, @RequestBody PagoRequestDTO pagoRequestDTO){
+		try {
+			PagoResponseDTO pagoActualizado = pagoService.updatePago(idPago, pagoRequestDTO);
+			return ResponseEntity.ok(pagoActualizado);
+		}catch(Exception e) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
 	}
+	
+	
 	
 	@PostMapping("/createPago")
 	public ResponseEntity<?> crearPago(@Valid @RequestBody PagoRequestDTO pagoRequestDTO){
@@ -108,14 +109,8 @@ public class PagoController {
 			}
 	}
 	
-	@PostMapping("/testPago")
-	public ResponseEntity<PagoRequestDTO> testPago(@RequestBody PagoRequestDTO pagoRequestDTO){
-		return ResponseEntity.ok(pagoRequestDTO);
-	}
 	
-
-	
-	@DeleteMapping("/deletePago")
+	@DeleteMapping("/deletePago/{id}")
 	public ResponseEntity<Void> deletePago(@PathVariable Integer id){
 	if(pagoRepository.existsById(id)) {
 		pagoRepository.deleteById(id);
@@ -133,7 +128,7 @@ public class PagoController {
 			
 			Row encabezado = hoja.createRow(0);
 			encabezado.createCell(0).setCellValue("ID");
-			encabezado.createCell(0).setCellValue("Cliente");
+			encabezado.createCell(1).setCellValue("Cliente");
 			encabezado.createCell(2).setCellValue("Monto");
 			encabezado.createCell(3).setCellValue("MetodoPago");
 			
@@ -142,9 +137,9 @@ public class PagoController {
 			for(Pago pago: pagos) {
 				Row fila = hoja.createRow(rowNum++);
 				fila.createCell(0).setCellValue(pago.getIdPago());
-				fila.createCell(0).setCellValue(pago.getCliente().getNombreCliente()+ " " + pago.getCliente().getApellidos());
-				fila.createCell(1).setCellValue(pago.getMonto().toString());
-				fila.createCell(2).setCellValue(pago.getMetodoPago().toString());
+				fila.createCell(1).setCellValue(pago.getCliente().getNombreCliente()+ " " + pago.getCliente().getApellidos());
+				fila.createCell(2).setCellValue(pago.getMonto().toString());
+				fila.createCell(3).setCellValue(pago.getMetodoPago().toString());
 			}
 			
 			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -174,7 +169,7 @@ public class PagoController {
 			PdfWriter.getInstance(document, out);
 			document.open();
 			
-			Font titulofont = FontFactory.getFont(FontFactory.HELVETICA_BOLD,16);
+			Font titulofont = FontFactory.getFont(FontFactory.TIMES_BOLD,12, Color.black);
 			Paragraph titulo = new Paragraph("Lista de pagos", titulofont);
 			titulo.setAlignment(Element.ALIGN_CENTER);
 			document.add(titulo);
@@ -186,14 +181,14 @@ public class PagoController {
 			
 			Stream.of("ID", "Cliente", "Monto", "MetodoPago").forEach(t ->{
 				PdfPCell celda = new PdfPCell(new Phrase(t));
-				celda.setBackgroundColor(Color.CYAN);
+				celda.setBackgroundColor(new Color(100,180,255));
 				celda.setHorizontalAlignment(Element.ALIGN_CENTER);
 				tabla.addCell(celda);
 			});
 			
 			for (Pago p: pagos) {
 				tabla.addCell(String.valueOf(p.getIdPago()));
-				tabla.addCell(String.valueOf(p.getCliente()));
+				tabla.addCell(String.valueOf(p.getCliente().getNombreCliente()+ " "+ p.getCliente().getApellidos()));
 				tabla.addCell("$" + p.getMonto());
 				tabla.addCell(String.valueOf(p.getMetodoPago()));
 			}
@@ -213,7 +208,7 @@ public class PagoController {
 	}
 	
 	@GetMapping("venta/{idVenta}/estadoPagos")
-	public ResponseEntity<Map<String, Object>> getEstadoPagos(@PathVariable Integer idVenta, @RequestBody Pago pago){
+	public ResponseEntity<Map<String, Object>> getEstadoPagos(@PathVariable Integer idVenta){
 		Venta venta = ventaRepository.findById(idVenta)
 				.orElseThrow(() -> new RuntimeException("Venta no encontrada"));
 		

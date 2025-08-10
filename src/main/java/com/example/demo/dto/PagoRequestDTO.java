@@ -7,6 +7,8 @@ import jakarta.validation.constraints.*;
 
 public class PagoRequestDTO {
 	@NotNull
+	private Integer idPago;
+	@NotNull
 	private Integer idVenta;
 	@NotNull
 	private Integer idCliente;
@@ -17,6 +19,13 @@ public class PagoRequestDTO {
 	private String metodoPago;
 	private LocalDateTime fecha;
 	
+	
+	public Integer getIdPago() {
+		return idPago;
+	}
+	public void setIdPago(Integer idPago) {
+		this.idPago = idPago;
+	}
 	
 	public Integer getIdVenta() {
 		return idVenta;

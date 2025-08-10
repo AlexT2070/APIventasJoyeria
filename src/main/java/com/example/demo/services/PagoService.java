@@ -3,11 +3,15 @@ package com.example.demo.services;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import com.example.demo.dto.PagoRequestDTO;
 import com.example.demo.dto.PagoResponseDTO;
@@ -25,12 +29,15 @@ public class PagoService {
 	private final ClienteRepository clienteRepository;
 	
 	
+	
 	@Autowired
 	public PagoService(PagoRepository pagoRepository, ClienteRepository clienteRepository, VentaRepository ventaRepository) {
 		this.pagoRepository = pagoRepository;
 		this.clienteRepository = clienteRepository;
 		this.ventaRepository = ventaRepository;
 	}
+	
+	
 	
 	@Transactional
 	public Pago RegisterPago(PagoRequestDTO pagoRequestDTO) {
@@ -83,10 +90,41 @@ public class PagoService {
 	}
 	
 	
+	@Transactional
+	public PagoResponseDTO updatePago(Integer idPago, @RequestBody PagoRequestDTO pagoRequestDTO){
+		Optional<Pago> pago = pagoRepository.findById(idPago);
+		
+		if(pago.isEmpty()) {
+			throw new RuntimeException("Pago no encontrado con ID: "+ idPago);
+		}
+		
+		Pago pagoExistente = pago.get();
+		
+		Optional<Cliente> clienteOp = clienteRepository.findById(pagoRequestDTO.getIdCliente());
+		if(clienteOp.isEmpty()) {
+			throw new RuntimeException("Cliente no encontrado con ID: "+ pagoRequestDTO.getIdCliente());
+		}
+		
+		Cliente cliente = clienteOp.get();
+		pagoExistente.setCliente(cliente);
+		
+		pagoExistente.setFecha(pagoRequestDTO.getFecha() != null ? pagoRequestDTO.getFecha() : LocalDateTime.now());
+		pagoExistente.setMonto(pagoRequestDTO.getMonto());
+		pagoExistente.setMetodoPago(Pago.metodoPago.valueOf(pagoRequestDTO.getMetodoPago()));
+		
+		Pago pagoActualizado = pagoRepository.save(pagoExistente);
+		
+		return convertToPagoResponseDTO(pagoActualizado);
+	}
+	@Transactional(readOnly = true)
+	public List<PagoResponseDTO>getAllPagos(){
+		List<Pago> pagos = pagoRepository.findAll();
+		return pagos.stream()
+				.map(this::convertToPagoResponseDTO)
+				.collect(Collectors.toList());
+	}
 	
-	
-	
-	
+		
 	@Transactional(readOnly = true)
 	public List<PagoResponseDTO> getPagosporCliente(Integer idCliente){
 		List<Pago> pagos = pagoRepository.findByClienteIdCliente(idCliente);
@@ -104,4 +142,5 @@ public class PagoService {
 		dto.setFecha(pago.getFecha());
 		return dto;
 	}
+
 }

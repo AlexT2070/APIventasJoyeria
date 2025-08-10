@@ -89,10 +89,12 @@ public class productoController {
 			PdfWriter.getInstance(document, out);
 			document.open();
 			
-			Font tituloFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Color.white);
+			Font tituloFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Color.black);
 			Paragraph titutlo = new Paragraph("Lista de Productos", tituloFont);
+			titutlo.setAlignment(Element.ALIGN_CENTER);
 			document.add(titutlo);
 			document.add(new Paragraph(""));
+			
 			
 			PdfPTable tabla =new PdfPTable(7);
 			tabla.setWidthPercentage(100);
