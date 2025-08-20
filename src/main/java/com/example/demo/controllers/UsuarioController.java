@@ -23,7 +23,7 @@ public class UsuarioController {
 		return usuarioRepository.findAll();
 		}
 	
-	@GetMapping("/readUsuarios")
+	@GetMapping("/readUsuarios/{id}")
 	public ResponseEntity<Usuario> getUsuarioById(@PathVariable Integer id){
 		Optional <Usuario> usuario = usuarioRepository.findById(id);
 		return usuario.map(ResponseEntity::ok)
@@ -35,22 +35,29 @@ public class UsuarioController {
 		return usuarioRepository.save(usuario);
 	}
 	
-	@PutMapping("/updateUsuariios")
+	@PutMapping("/updateUsuarios/{id}")
 	public ResponseEntity<Usuario> updateUsuario(@PathVariable Integer id, @RequestBody Usuario usuarioDetails){
-		Optional <Usuario> usuario = usuarioRepository.findById(id);
-		if(usuario.isPresent()) {
-			Usuario updateUsuario = usuario.get();
-			updateUsuario.setNombre(usuarioDetails.getNombre());
-			updateUsuario.setPwd(usuarioDetails.getPwd());
-			return ResponseEntity.ok(usuarioRepository.save(updateUsuario));
-		}else {
-			return ResponseEntity.notFound().build();
-			}
+		Optional <Usuario> usuarioOp = usuarioRepository.findById(id);
+		 if(usuarioOp.isPresent()) {
+		        Usuario usuarioExistente = usuarioOp.get();
+    
+		        if (usuarioDetails.getNombre() != null) {
+		            usuarioExistente.setNombre(usuarioDetails.getNombre());
+		        }
+		        if (usuarioDetails.getPwd() != null) {
+		            usuarioExistente.setPwd(usuarioDetails.getPwd());
+		        }
+
+		        return ResponseEntity.ok(usuarioRepository.save(usuarioExistente));
+		    } else {
+		        return ResponseEntity.notFound().build();
+		    }
 	}
 	
-	public ResponseEntity<Void> deteleteUsuario(@PathVariable Integer id){
+	@DeleteMapping("/deleteUsuarios/{id}")
+	public ResponseEntity<Void> deleteUsuario(@PathVariable Integer id){
 		if(usuarioRepository.existsById(id)) {
-			usuarioRepository.existsById(id);
+			usuarioRepository.deleteById(id);
 			return ResponseEntity.ok().build();
 		}else {
 			return ResponseEntity.notFound().build();
